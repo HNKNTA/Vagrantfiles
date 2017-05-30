@@ -1,0 +1,30 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "centos/7"
+  config.vm.provider "virtualbox" do |vb|
+    vb.gui = false
+    vb.memory = 4096
+    vb.cpus = 4
+  end
+
+  if Vagrant::Util::Platform.windows? then
+     # requires vagrant-vbguest
+     config.vm.synced_folder ".", "/vagrant", type: "virtualbox"
+  end
+
+  config.vm.define "main_server" do |main_server|
+    main_server.vm.network "private_network", ip: "172.16.16.1"
+    main_server.vm.provision "disable_firewall", type: "shell",
+      inline: "systemctl stop firewalld && systemctl disable firewalld"
+    main_server.vm.provision "yum", type: "shell",
+      inline: "yum install git mc vim -y"
+    main_server.vm.provision "ip_forwarding", type: "shell",
+      inline: "echo net.ipv4.ip_forward=1 >> /etc/sysctl.conf"
+    main_server.vm.provision "ssh_allow_password", type: "shell",
+      inline: %q(sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+                 systemctl restart sshd
+                )
+  end
+end
